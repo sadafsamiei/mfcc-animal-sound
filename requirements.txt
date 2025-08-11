@@ -1,0 +1,10 @@
+numpy
+scipy
+pandas
+matplotlib
+torch
+torchaudio
+scikit-learn
+onnx
+onnxruntime-gpu
+tqdm
