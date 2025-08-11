@@ -81,10 +81,12 @@ python scripts/visualise_results.py \
 echo "=== Step 5: Plot waveforms + MFCCs (Matplotlib) ==="
 python scripts/inference.py \
   --do_plot \
+  --plot_combined \
   --species auto \
   --sr ${SR} --n_mfcc ${N_MFCC} --frames ${FRAMES} \
   --focus_seconds 3.0 --max_points 24000 || true
-  # add --do_predict --ckpt results/best_model.pt --class_map results/classes.json to also write infer_predictions.csv
+
+
 
 echo "=== DONE ==="
 echo "Report: results/report.html"
