@@ -95,6 +95,3 @@ This will:
 - The pipeline supports ONNX export for deployment.
 
 ---
-
-**Author:** Your Name  
-**License:** MIT  
