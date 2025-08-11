@@ -84,6 +84,11 @@ This will:
 
 </p>
 
+### 🔹 Combined Sound Plots for Available Species
+<img src="results/combined_animals_waveforms.png" alt="Bird Waveforms" width="700">
+
+
+
 ---
 
 ## 📌 Notes
