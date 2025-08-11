@@ -79,7 +79,7 @@ This will:
 <p float="left">
   <img src="results/mfcc_bird_1.png" width="300">
   <img src="results/mfcc_monkey_1.png" width="300">
-  <img src="results/mfcc_cat_1.png" width="300">
+  <img src="results/mfcc_dog_1.png" width="300">
 </p>
 
 ---
