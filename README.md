@@ -76,15 +76,15 @@ This will:
 <img src="results/loss_curve.png" alt="Loss Curve" width="500">
 
 ### 🔹 Bird Waveforms
-<img src="results/waveforms_plots/bird_waveforms_concat_colored.png" alt="Bird Waveforms" width="700">
+<img src="results/bird_waveforms_concat_colored.png" alt="Bird Waveforms" width="700">
 
 ### 🔹 MFCC Plots for Bird Samples
 <p float="left">
-  <img src="results/mfcc_plots/mfcc_bird_1.png" width="300">
-  <img src="results/mfcc_plots/mfcc_bird_2.png" width="300">
-  <img src="results/mfcc_plots/mfcc_bird_3.png" width="300">
-  <img src="results/mfcc_plots/mfcc_bird_4.png" width="300">
-  <img src="results/mfcc_plots/mfcc_bird_5.png" width="300">
+  <img src="results/mfcc_bird_1.png" width="300">
+  <img src="results/mfcc_bird_2.png" width="300">
+  <img src="results/mfcc_bird_3.png" width="300">
+  <img src="results/mfcc_bird_4.png" width="300">
+  <img src="results/mfcc_bird_5.png" width="300">
 </p>
 
 ---
