@@ -78,8 +78,8 @@ This will:
 ### 🔹 MFCC Plots for Bird Samples
 <p float="left">
   <img src="results/mfcc_bird_1.png" width="350">
-  <img src="results/mfcc_monkey_1.png" width="350">
-  <img src="results/mfcc_dog_1.png" width="350">
+  <img src="results/mfcc_monkey_4.png" width="350">
+  <img src="results/mfcc_dog_4.png" width="350">
   <img src="results/mfcc_cat_1.png" width="350">
 
 </p>
