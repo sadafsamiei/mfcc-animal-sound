@@ -72,9 +72,6 @@ This will:
 
 ## 📈 Sample Generated Outputs
 
-### 🔹 Loss Curve
-<img src="results/loss_curve.png" alt="Loss Curve" width="500">
-
 ### 🔹 Bird Waveforms
 <img src="results/bird_waveforms_concat_colored.png" alt="Bird Waveforms" width="700">
 
