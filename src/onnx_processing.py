@@ -71,7 +71,7 @@ def preprocess_mfcc(wav_path, sr, n_mfcc, frames, n_fft=1024, hop=256):
         mfcc = torch.cat([mfcc, pad], dim=-1)
     else:
         mfcc = mfcc[..., :frames]
-    x = mfcc.numpy().astype(np.float32)  # (1, n_mfcc, frames)
+    x = mfcc.numpy().astype(np.float32)  
     return x
 
 def choose_providers():
