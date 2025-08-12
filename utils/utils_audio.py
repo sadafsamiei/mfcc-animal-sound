@@ -14,7 +14,7 @@ __all__ = [
 
 def load_resample(path, sr: int) -> torch.Tensor:
     y, srr = torchaudio.load(str(path))
-    y = y.mean(0, keepdim=True)  # mono
+    y = y.mean(0, keepdim=True)  
     if srr != sr:
         y = torchaudio.functional.resample(y, srr, sr)
     return y.squeeze(0)
@@ -60,7 +60,7 @@ def mfcc_crop(
         n_mfcc=n_mfcc,
         melkwargs={"n_fft": n_fft, "hop_length": hop, "center": True},
     ).to(device)
-    m = tx(y.unsqueeze(0)).squeeze(0)  # (n_mfcc, T')
+    m = tx(y.unsqueeze(0)).squeeze(0) 
     if max_frames is not None and m.shape[-1] > max_frames:
         m = m[:, :max_frames]
     return m.cpu()
