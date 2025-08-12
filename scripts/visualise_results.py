@@ -1,5 +1,8 @@
-#!/usr/bin/env python3
-import argparse, re, os, json, glob
+import argparse
+import re
+import os
+import json
+import glob
 from pathlib import Path
 from html import escape
 from datetime import datetime
