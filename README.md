@@ -1,6 +1,6 @@
 # MFCC Animal Sound Classification
 
-This repository contains a full pipeline for **animal sound classification** using MFCC (Mel Frequency Cepstral Coefficients) features and deep learning models (CNN and LSTM with Attention).
+This repository contains a full pipeline for **animal sound classification** using Mel Frequency Cepstral Coefficients (MFCC) features and deep learning models (CNN and LSTM with Attention).
 
 The workflow includes **data preprocessing**, **model training**, **evaluation**, **ONNX export**, and **visualizations** such as waveforms, MFCC plots, confusion matrices, and loss curves.
 
