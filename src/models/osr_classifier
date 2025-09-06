@@ -1,13 +1,33 @@
+#!/usr/bin/env python3
+"""
+Open-Set Recognition (OSR) on 10 test clips (s1.wav ... s10.wav).
+
+- Loads a trained MFCC model (CNN or LSTM+Attention).
+- Extracts MFCC (optionally with Δ and ΔΔ) using torchaudio, with optional CMVN.
+- Classifies into {bird:0, cat:1, dog:2, lion:3, monkey:4}; low-confidence/high-entropy -> OOSR(5).
+- Prints per-file predictions and overall accuracy; saves CSV.
+
+Run:
+  python -m src.models.osr_classifier \
+    --root /scratch/ssamie/mfcc-animal-sound \
+    --arch mfcc_lstm \
+    --ckpt results/best_model.pt \
+    --sr 16000 --n_mfcc 40 --frames 384 \
+    --feature_mode auto --cmvn \
+    --msp_thresh 0.75 --ent_thresh 1.40
+"""
+
 import argparse
+import csv
 import json
 import sys
 from pathlib import Path
-from typing import Tuple, Dict, List
 
 import numpy as np
 import torch
 import torchaudio
 
+# ---------- project import path ----------
 THIS_FILE = Path(__file__).resolve()
 PROJECT_ROOT = THIS_FILE.parents[2]  # .../mfcc-animal-sound
 if str(PROJECT_ROOT) not in sys.path:
@@ -20,6 +40,7 @@ from src.models.LSTM_Attn import MFCC_LSTM_Attn
 CLASS_TO_IDX_DEFAULT = {"bird": 0, "cat": 1, "dog": 2, "lion": 3, "monkey": 4, "OOSR": 5}
 IDX_TO_CLASS_DEF = {v: k for k, v in CLASS_TO_IDX_DEFAULT.items()}
 
+# s1..s10 ground truth per your spec
 GT_LABELS = {
     1: 1,   # s1: cat
     2: 1,   # s2: cat
@@ -28,157 +49,194 @@ GT_LABELS = {
     5: 4,   # s5: monkey
     6: 4,   # s6: monkey
     7: 0,   # s7: bird
-    8: 5,   # s8: OOSR (unknown)
-    9: 5,   # s9: OOSR (unknown)
+    8: 5,   # s8: OOSR
+    9: 5,   # s9: OOSR
     10: 2,  # s10: dog
 }
 
 # ---------- helpers ----------
-def build_model(arch: str, num_classes: int, n_mfcc: int):
+def build_model(arch, input_size, num_classes):
+    """input_size == n_mfcc used by the model (40 or 120 if MFCC+Δ+ΔΔ)."""
     if arch == "mfcc_cnn":
         return MFCC_CNN(num_classes=num_classes)
     elif arch == "mfcc_lstm":
         return MFCC_LSTM_Attn(
-            n_mfcc=n_mfcc, num_classes=num_classes,
+            n_mfcc=input_size, num_classes=num_classes,
             hidden=128, num_layers=1, bidir=True, dropout=0.1
         )
-    raise ValueError(f"Unknown arch: {arch}")
+    raise ValueError("Unknown arch: %s" % arch)
 
-def load_checkpoint(model: torch.nn.Module, ckpt_path: Path, device: torch.device):
-    # Try safe load (PyTorch 2.4+), else fall back
+def safe_load(ckpt_path, device):
     try:
-        state = torch.load(str(ckpt_path), map_location=device, weights_only=True)  # type: ignore[arg-type]
+        # PyTorch >= 2.4
+        return torch.load(str(ckpt_path), map_location=device, weights_only=True)  # type: ignore
     except TypeError:
-        state = torch.load(str(ckpt_path), map_location=device)
+        return torch.load(str(ckpt_path), map_location=device)
 
+def infer_input_size_from_ckpt(ckpt_path, device):
+    """
+    For LSTM models, read weight_ih_l0 to recover input_size (n_mfcc or 3*n_mfcc).
+    Returns int or None (for CNNs).
+    """
+    state = safe_load(ckpt_path, device)
+    sd = state.get("state_dict", state) if isinstance(state, dict) else state
+    for key in ("lstm.weight_ih_l0", "rnn.weight_ih_l0"):
+        if key in sd:
+            return int(sd[key].shape[1])  # input_size
+    return None
+
+def load_checkpoint(model, ckpt_path, device):
+    state = safe_load(ckpt_path, device)
     if isinstance(state, dict) and "state_dict" in state:
         state = state["state_dict"]
     model.load_state_dict(state, strict=True)
     model.to(device).eval()
     return model
 
-def load_resample_mono(path: Path, sr: int) -> torch.Tensor:
+def load_resample_mono(path, sr):
     y, srr = torchaudio.load(str(path))
     y = y.mean(0, keepdim=True)
     if srr != sr:
         y = torchaudio.functional.resample(y, srr, sr)
     return y.squeeze(0)  # (T,)
 
-def wav_to_mfcc_tensor(
-    wav: torch.Tensor, sr: int, n_mfcc: int, frames: int, n_fft: int = 1024, hop: int = 256
-) -> torch.Tensor:
+def make_features(wav, sr, base_n_mfcc, frames, feature_mode, cmvn):
     """
-    Returns MFCC as (1, 1, n_mfcc, frames) to match training input shape.
+    Returns (1, 1, F, frames) where F is base_n_mfcc or 3*base_n_mfcc.
     """
     tx = torchaudio.transforms.MFCC(
-        sample_rate=sr, n_mfcc=n_mfcc, melkwargs={"n_fft": n_fft, "hop_length": hop, "center": True}
+        sample_rate=sr, n_mfcc=base_n_mfcc,
+        melkwargs={"n_fft": 1024, "hop_length": 256, "center": True}
     )
-    m = tx(wav.unsqueeze(0))  # (1, n_mfcc, T')
+    m = tx(wav.unsqueeze(0))  # (1, F, T)
+    if feature_mode == "mfcc_deltas":
+        d  = torchaudio.functional.compute_deltas(m)
+        dd = torchaudio.functional.compute_deltas(d)
+        m = torch.cat([m, d, dd], dim=1)  # (1, 3F, T)
+    if cmvn:
+        mu = m.mean(dim=(0, 2), keepdim=True)
+        std = m.std(dim=(0, 2), keepdim=True).clamp_min(1e-6)
+        m = (m - mu) / std
     T = m.shape[-1]
     if T < frames:
-        pad = torch.zeros((1, n_mfcc, frames - T), dtype=m.dtype)
+        pad = torch.zeros((m.size(0), m.size(1), frames - T), dtype=m.dtype)
         m = torch.cat([m, pad], dim=-1)
     else:
         m = m[..., :frames]
-    return m.unsqueeze(1)  # (1, 1, n_mfcc, frames)
+    return m.unsqueeze(1)  # (1, 1, F, frames)
 
-def softmax_stable(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
+def softmax_stable(logits, dim=-1):
     z = logits - logits.max(dim=dim, keepdim=True).values
     ez = torch.exp(z)
     return ez / ez.sum(dim=dim, keepdim=True)
 
-def predictive_entropy(probs: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
+def predictive_entropy(probs, eps=1e-12):
     p = probs.clamp_min(eps)
     return -(p * torch.log(p)).sum(dim=-1)
 
-def classify_open_set(
-    logits: torch.Tensor,
-    known_classes: int,
-    msp_thresh: float,
-    ent_thresh: float,
-) -> Tuple[int, float, float]:
-    """
-    Returns (pred_label_or_OOSR, msp, entropy).
-    If msp < msp_thresh OR entropy > ent_thresh -> OOSR (label 5).
-    """
-    probs = softmax_stable(logits.detach(), dim=-1)  # (C,)
+def classify_open_set(logits, msp_thresh, ent_thresh):
+    probs = softmax_stable(logits.detach(), dim=-1)
     msp, pred_idx = probs.max(dim=-1)
     ent = predictive_entropy(probs)
-
-    if (msp.item() < msp_thresh) or (ent.item() > ent_thresh):
-        return (5, float(msp.item()), float(ent.item()))
-    else:
-        return (int(pred_idx.item()), float(msp.item()), float(ent.item()))
+    if (float(msp) < msp_thresh) or (float(ent) > ent_thresh):
+        return 5, float(msp), float(ent)  # OOSR
+    return int(pred_idx), float(msp), float(ent)
 
 # ---------- main ----------
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--root", type=str, default=str(PROJECT_ROOT), help="Project root")
-    ap.add_argument("--test_dir", type=str, default="data/test", help="relative or absolute path to test .wav folder")
+    ap.add_argument("--root", type=str, default=str(PROJECT_ROOT))
+    ap.add_argument("--test_dir", type=str, default="data/test")
     ap.add_argument("--arch", choices=["mfcc_lstm", "mfcc_cnn"], default="mfcc_lstm")
     ap.add_argument("--ckpt", type=str, default="results/best_model.pt")
     ap.add_argument("--sr", type=int, default=16000)
-    ap.add_argument("--n_mfcc", type=int, default=20)
-    ap.add_argument("--frames", type=int, default=256)
+    ap.add_argument("--n_mfcc", type=int, default=40, help="Base MFCC count (before deltas)")
+    ap.add_argument("--frames", type=int, default=384)
     ap.add_argument("--device", type=str, default="cuda")
-    # OSR thresholds
-    ap.add_argument("--msp_thresh", type=float, default=0.60, help="Max softmax prob threshold for known")
-    ap.add_argument("--ent_thresh", type=float, default=1.20, help="Entropy threshold (nats) for unknown")
+    ap.add_argument("--feature_mode", choices=["auto", "mfcc", "mfcc_deltas"], default="auto")
+    ap.add_argument("--cmvn", action="store_true", default=False)
+    ap.add_argument("--msp_thresh", type=float, default=0.75)
+    ap.add_argument("--ent_thresh", type=float, default=1.40)
     ap.add_argument("--save_csv", type=str, default="results/osr_predictions.csv")
     args = ap.parse_args()
 
     root = Path(args.root)
     test_dir = Path(args.test_dir) if Path(args.test_dir).is_absolute() else (root / args.test_dir)
-    ckpt_path = Path(args.ckpt) if Path(args.ckpt).is_absolute() else (root / args.ckpt)
+    ckpt = Path(args.ckpt) if Path(args.ckpt).is_absolute() else (root / args.ckpt)
     out_csv = Path(args.save_csv) if Path(args.save_csv).is_absolute() else (root / args.save_csv)
 
-    # Device
     use_cuda = (args.device == "cuda") and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    # Build & load model (5 known classes)
-    known_classes = 5
-    model = build_model(args.arch, num_classes=known_classes, n_mfcc=args.n_mfcc)
-    model = load_checkpoint(model, ckpt_path, device=device)
+    # Decide feature mode / input size to match checkpoint
+    ckpt_inp = infer_input_size_from_ckpt(ckpt, device)  # e.g., 120 for (40×3)
+    feat_mode = args.feature_mode
+    model_input_size = args.n_mfcc  # default
 
-    # s1.wav ... s10.wav
+    if args.arch == "mfcc_lstm":
+        if feat_mode == "auto":
+            if ckpt_inp is not None:
+                if ckpt_inp == 3 * args.n_mfcc:
+                    feat_mode = "mfcc_deltas"
+                    model_input_size = ckpt_inp
+                elif ckpt_inp == args.n_mfcc:
+                    feat_mode = "mfcc"
+                    model_input_size = ckpt_inp
+                else:
+                    # fallback: honor ckpt input, assume it equals model_input_size
+                    model_input_size = ckpt_inp
+                    feat_mode = "mfcc_deltas" if ckpt_inp == 3 * args.n_mfcc else "mfcc"
+            else:
+                feat_mode = "mfcc"  # CNN case or unknown; fine either way
+        else:
+            model_input_size = (3 * args.n_mfcc) if feat_mode == "mfcc_deltas" else args.n_mfcc
+    else:
+        # CNN ignores input_size; just keep feature extractor choice
+        if feat_mode == "auto":
+            feat_mode = "mfcc"
+
+    # Build & load model
+    known_classes = 5
+    model = build_model(args.arch, input_size=model_input_size, num_classes=known_classes)
+    model = load_checkpoint(model, ckpt, device)
+
+    # Prepare file list s1..s10
     files = [test_dir / f"s{i}.wav" for i in range(1, 11)]
-    if not all(p.exists() for p in files):
-        missing = [str(p) for p in files if not p.exists()]
+    missing = [str(p) for p in files if not p.exists()]
+    if missing:
         raise SystemExit(f"[fatal] Missing test files: {missing}")
 
-    rows: List[List[str]] = []
-    correct = 0
     print("\n[OSR] Evaluating s1.wav ... s10.wav")
+    print(f"  Feature mode: {feat_mode} | CMVN: {args.cmvn}")
     print(f"  MSP threshold: {args.msp_thresh:.2f} | Entropy threshold: {args.ent_thresh:.2f}\n")
+
+    rows = []
+    correct = 0
 
     for i, wav_path in enumerate(files, start=1):
         wav = load_resample_mono(wav_path, args.sr)
-        x = wav_to_mfcc_tensor(wav, args.sr, args.n_mfcc, args.frames)  # (1,1,F,T)
+        x = make_features(wav, args.sr, args.n_mfcc, args.frames, feat_mode, args.cmvn)  # (1,1,F,frames)
 
         with torch.no_grad():
             out = model(x.to(device))
-            # LSTM_Attn returns (logits, attn); CNN returns logits
             logits = out[0] if isinstance(out, (tuple, list)) else out
             logits = logits.squeeze(0)  # (C,)
 
-        pred, msp, ent = classify_open_set(logits, known_classes, args.msp_thresh, args.ent_thresh)
+        pred, msp, ent = classify_open_set(logits, args.msp_thresh, args.ent_thresh)
 
         gt = GT_LABELS[i]
-        is_correct = int(pred == gt)
-        correct += is_correct
+        ok = int(pred == gt)
+        correct += ok
 
         pred_name = IDX_TO_CLASS_DEF.get(pred, str(pred))
         gt_name = IDX_TO_CLASS_DEF.get(gt, str(gt))
-        print(f"{wav_path.name:>6s}  -> pred={pred_name:>7s} (msp={msp:.3f}, ent={ent:.2f}) | gt={gt_name:>7s} | {'✓' if is_correct else '✗'}")
-        rows.append([wav_path.name, str(pred), pred_name, str(gt), gt_name, f"{msp:.4f}", f"{ent:.4f}", str(is_correct)])
+        print(f"{wav_path.name:>6s}  -> pred={pred_name:>7s} (msp={msp:.3f}, ent={ent:.2f}) | gt={gt_name:>7s} | {'✓' if ok else '✗'}")
+        rows.append([wav_path.name, str(pred), pred_name, str(gt), gt_name, f"{msp:.4f}", f"{ent:.4f}", str(ok)])
 
-    acc = correct / len(files)
+    acc = correct / float(len(files))
     print(f"\n[OSR] Accuracy: {correct}/{len(files)} = {acc:.3f}")
 
-    # Save CSV
     out_csv.parent.mkdir(parents=True, exist_ok=True)
-    import csv
     with out_csv.open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["file", "pred_idx", "pred_name", "gt_idx", "gt_name", "msp", "entropy", "correct"])
@@ -186,6 +244,7 @@ def main():
         w.writerow([])
         w.writerow(["accuracy", f"{acc:.4f}"])
     print(f"[OSR] Wrote {out_csv}")
+    print("=== DONE ===")
 
 if __name__ == "__main__":
     main()
