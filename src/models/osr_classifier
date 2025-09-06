@@ -1,0 +1,191 @@
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Tuple, Dict, List
+
+import numpy as np
+import torch
+import torchaudio
+
+THIS_FILE = Path(__file__).resolve()
+PROJECT_ROOT = THIS_FILE.parents[2]  # .../mfcc-animal-sound
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
+from src.models.MFCC import MFCC_CNN
+from src.models.LSTM_Attn import MFCC_LSTM_Attn
+
+# ---------- class map & ground truth ----------
+CLASS_TO_IDX_DEFAULT = {"bird": 0, "cat": 1, "dog": 2, "lion": 3, "monkey": 4, "OOSR": 5}
+IDX_TO_CLASS_DEF = {v: k for k, v in CLASS_TO_IDX_DEFAULT.items()}
+
+GT_LABELS = {
+    1: 1,   # s1: cat
+    2: 1,   # s2: cat
+    3: 1,   # s3: cat
+    4: 4,   # s4: monkey
+    5: 4,   # s5: monkey
+    6: 4,   # s6: monkey
+    7: 0,   # s7: bird
+    8: 5,   # s8: OOSR (unknown)
+    9: 5,   # s9: OOSR (unknown)
+    10: 2,  # s10: dog
+}
+
+# ---------- helpers ----------
+def build_model(arch: str, num_classes: int, n_mfcc: int):
+    if arch == "mfcc_cnn":
+        return MFCC_CNN(num_classes=num_classes)
+    elif arch == "mfcc_lstm":
+        return MFCC_LSTM_Attn(
+            n_mfcc=n_mfcc, num_classes=num_classes,
+            hidden=128, num_layers=1, bidir=True, dropout=0.1
+        )
+    raise ValueError(f"Unknown arch: {arch}")
+
+def load_checkpoint(model: torch.nn.Module, ckpt_path: Path, device: torch.device):
+    # Try safe load (PyTorch 2.4+), else fall back
+    try:
+        state = torch.load(str(ckpt_path), map_location=device, weights_only=True)  # type: ignore[arg-type]
+    except TypeError:
+        state = torch.load(str(ckpt_path), map_location=device)
+
+    if isinstance(state, dict) and "state_dict" in state:
+        state = state["state_dict"]
+    model.load_state_dict(state, strict=True)
+    model.to(device).eval()
+    return model
+
+def load_resample_mono(path: Path, sr: int) -> torch.Tensor:
+    y, srr = torchaudio.load(str(path))
+    y = y.mean(0, keepdim=True)
+    if srr != sr:
+        y = torchaudio.functional.resample(y, srr, sr)
+    return y.squeeze(0)  # (T,)
+
+def wav_to_mfcc_tensor(
+    wav: torch.Tensor, sr: int, n_mfcc: int, frames: int, n_fft: int = 1024, hop: int = 256
+) -> torch.Tensor:
+    """
+    Returns MFCC as (1, 1, n_mfcc, frames) to match training input shape.
+    """
+    tx = torchaudio.transforms.MFCC(
+        sample_rate=sr, n_mfcc=n_mfcc, melkwargs={"n_fft": n_fft, "hop_length": hop, "center": True}
+    )
+    m = tx(wav.unsqueeze(0))  # (1, n_mfcc, T')
+    T = m.shape[-1]
+    if T < frames:
+        pad = torch.zeros((1, n_mfcc, frames - T), dtype=m.dtype)
+        m = torch.cat([m, pad], dim=-1)
+    else:
+        m = m[..., :frames]
+    return m.unsqueeze(1)  # (1, 1, n_mfcc, frames)
+
+def softmax_stable(logits: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    z = logits - logits.max(dim=dim, keepdim=True).values
+    ez = torch.exp(z)
+    return ez / ez.sum(dim=dim, keepdim=True)
+
+def predictive_entropy(probs: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
+    p = probs.clamp_min(eps)
+    return -(p * torch.log(p)).sum(dim=-1)
+
+def classify_open_set(
+    logits: torch.Tensor,
+    known_classes: int,
+    msp_thresh: float,
+    ent_thresh: float,
+) -> Tuple[int, float, float]:
+    """
+    Returns (pred_label_or_OOSR, msp, entropy).
+    If msp < msp_thresh OR entropy > ent_thresh -> OOSR (label 5).
+    """
+    probs = softmax_stable(logits.detach(), dim=-1)  # (C,)
+    msp, pred_idx = probs.max(dim=-1)
+    ent = predictive_entropy(probs)
+
+    if (msp.item() < msp_thresh) or (ent.item() > ent_thresh):
+        return (5, float(msp.item()), float(ent.item()))
+    else:
+        return (int(pred_idx.item()), float(msp.item()), float(ent.item()))
+
+# ---------- main ----------
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--root", type=str, default=str(PROJECT_ROOT), help="Project root")
+    ap.add_argument("--test_dir", type=str, default="data/test", help="relative or absolute path to test .wav folder")
+    ap.add_argument("--arch", choices=["mfcc_lstm", "mfcc_cnn"], default="mfcc_lstm")
+    ap.add_argument("--ckpt", type=str, default="results/best_model.pt")
+    ap.add_argument("--sr", type=int, default=16000)
+    ap.add_argument("--n_mfcc", type=int, default=20)
+    ap.add_argument("--frames", type=int, default=256)
+    ap.add_argument("--device", type=str, default="cuda")
+    # OSR thresholds
+    ap.add_argument("--msp_thresh", type=float, default=0.60, help="Max softmax prob threshold for known")
+    ap.add_argument("--ent_thresh", type=float, default=1.20, help="Entropy threshold (nats) for unknown")
+    ap.add_argument("--save_csv", type=str, default="results/osr_predictions.csv")
+    args = ap.parse_args()
+
+    root = Path(args.root)
+    test_dir = Path(args.test_dir) if Path(args.test_dir).is_absolute() else (root / args.test_dir)
+    ckpt_path = Path(args.ckpt) if Path(args.ckpt).is_absolute() else (root / args.ckpt)
+    out_csv = Path(args.save_csv) if Path(args.save_csv).is_absolute() else (root / args.save_csv)
+
+    # Device
+    use_cuda = (args.device == "cuda") and torch.cuda.is_available()
+    device = torch.device("cuda" if use_cuda else "cpu")
+
+    # Build & load model (5 known classes)
+    known_classes = 5
+    model = build_model(args.arch, num_classes=known_classes, n_mfcc=args.n_mfcc)
+    model = load_checkpoint(model, ckpt_path, device=device)
+
+    # s1.wav ... s10.wav
+    files = [test_dir / f"s{i}.wav" for i in range(1, 11)]
+    if not all(p.exists() for p in files):
+        missing = [str(p) for p in files if not p.exists()]
+        raise SystemExit(f"[fatal] Missing test files: {missing}")
+
+    rows: List[List[str]] = []
+    correct = 0
+    print("\n[OSR] Evaluating s1.wav ... s10.wav")
+    print(f"  MSP threshold: {args.msp_thresh:.2f} | Entropy threshold: {args.ent_thresh:.2f}\n")
+
+    for i, wav_path in enumerate(files, start=1):
+        wav = load_resample_mono(wav_path, args.sr)
+        x = wav_to_mfcc_tensor(wav, args.sr, args.n_mfcc, args.frames)  # (1,1,F,T)
+
+        with torch.no_grad():
+            out = model(x.to(device))
+            # LSTM_Attn returns (logits, attn); CNN returns logits
+            logits = out[0] if isinstance(out, (tuple, list)) else out
+            logits = logits.squeeze(0)  # (C,)
+
+        pred, msp, ent = classify_open_set(logits, known_classes, args.msp_thresh, args.ent_thresh)
+
+        gt = GT_LABELS[i]
+        is_correct = int(pred == gt)
+        correct += is_correct
+
+        pred_name = IDX_TO_CLASS_DEF.get(pred, str(pred))
+        gt_name = IDX_TO_CLASS_DEF.get(gt, str(gt))
+        print(f"{wav_path.name:>6s}  -> pred={pred_name:>7s} (msp={msp:.3f}, ent={ent:.2f}) | gt={gt_name:>7s} | {'✓' if is_correct else '✗'}")
+        rows.append([wav_path.name, str(pred), pred_name, str(gt), gt_name, f"{msp:.4f}", f"{ent:.4f}", str(is_correct)])
+
+    acc = correct / len(files)
+    print(f"\n[OSR] Accuracy: {correct}/{len(files)} = {acc:.3f}")
+
+    # Save CSV
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    import csv
+    with out_csv.open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["file", "pred_idx", "pred_name", "gt_idx", "gt_name", "msp", "entropy", "correct"])
+        w.writerows(rows)
+        w.writerow([])
+        w.writerow(["accuracy", f"{acc:.4f}"])
+    print(f"[OSR] Wrote {out_csv}")
+
+if __name__ == "__main__":
+    main()
