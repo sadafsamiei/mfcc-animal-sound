@@ -132,7 +132,8 @@ The LSTM-Attn model highlights **distinct bursts** (e.g., lion roars, bird chirp
 - Model is **robust to Gaussian noise**,  
 - but **fragile to adversarial FGSM perturbations** (sharp drop in accuracy).  
 
-![Adversarial Sensitivity](results/adversarial_sensitivity .png)  
+<img src="results/adversarial_sensitivity.png" alt="Adversarial Sensitivity" width="400"/>
+
 
 ---
 
