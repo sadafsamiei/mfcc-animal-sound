@@ -1,101 +1,143 @@
-# MFCC Animal Sound Classification
+# 🐾 MFCC Animal Sound Classification with OOD Detection and Robustness Analysis  
 
-This repository contains a full pipeline for **animal sound classification** using Mel Frequency Cepstral Coefficients (MFCC) features and deep learning models (CNN and LSTM with Attention).
-
-The workflow includes **data preprocessing**, **model training**, **evaluation**, **ONNX export**, and **visualizations** such as waveforms, MFCC plots, confusion matrices, and loss curves.
+This project implements a complete pipeline for **animal sound classification** using **MFCC features** and an **LSTM with Attention** model. It also includes **Out-of-Distribution (OOD) detection**, **uncertainty estimation**, **explainability visualizations**, and **robustness testing** against noise and adversarial attacks.  
 
 ---
 
-## 📂 Repository Structure
+## 📂 Project Structure  
 
 ```
-.
-├── data/                 # Input sound files (animal recordings)
-├── results/              # Generated after running the pipeline
-│   ├── figures/          # Plots, heatmaps, confusion matrices
-│   ├── classes.json      # Class-to-index mapping
-│   ├── report.html       # Interactive evaluation report
-│   ├── model.onnx        # Exported ONNX model
-│   ├── best_model.pt     # Best model checkpoint
-│   ├── loss_curve.png    # Training/Validation loss over epochs
-│   └── waveforms_plots/  # Concatenated waveform plots
-├── scripts/
-│   ├── inference.py
-│   ├── prepare_data.py
-│   └── visualise_results.py
-├── src/
-│   ├── train.py
-│   ├── onnx_processing.py
-│   ├── eval.py
-│   ├── preprocessing.py
-│   └── models/
-|       ├── osr_classifier.py
-│       ├── LSTM_Attn.py
-│       └── MFCC.py
-|       
-├── utils/
-│   ├── __init__.py
-│   ├── utils_audio.py
-│   └── utils_plot.py
-├── assets.py
-├── load.sh
-├── requirements.txt
-└── README.md
+data/  
+ ├── train/  
+ │    ├── bird/ {train1.wav … train5.wav}  
+ │    ├── cat/ …  
+ │    ├── lion/ …  
+ │    ├── monkey/ …  
+ │    └── dog/ …  
+ └── val/  
+      ├── bird/ {val1.wav, val2.wav}  
+      ├── cat/ …  
+      ├── lion/ …  
+      ├── monkey/ …  
+      └── dog/ …  
+
+models/  
+ ├── LSTM_Attn.py        # Main LSTM + Attention model  
+ └── MFCC.py             # MFCC feature extraction dataset class  
+
+results/  
+ ├── plots/              # MFCC, log-Mel, and waveform plots  
+ ├── explainability/     # Attention visualization plots  
+ ├── adversarial_sensitivity.png  
+ ├── confusion_matrix.png  
+ ├── centroid_distances.png  
+ └── logs/experiment.out  
+
+scripts/  
+ ├── preprocessing.py    # Data preprocessing (MFCC extraction, etc.)  
+ └── onnx_processing.py  # Export model to ONNX format  
+
+src/  
+ ├── osr_classifier.py   # OOD detection via centroid distance  
+ ├── osr_uncertainty.py  # OOD detection with entropy & MC dropout  
+ └── plot_mfcc.py        # MFCC, log-Mel, waveform plotting  
+
+utils/  
+ ├── adversarial_sensitivity.py  # Gaussian & FGSM robustness curves  
+ ├── confusion_matrix.py         # Confusion matrix plotting  
+ ├── embedding_analysis.py       # t-SNE, K-means, logistic regression  
+ ├── explainability.py           # Attention visualization plots  
+ └── util_centroid.py            # Distance-to-centroid histograms  
+
+assets.py          # Global configs (paths, sample rate, MFCC params)  
+train.py           # Training script  
+eval.py            # Evaluation script  
+run.sh             # SLURM batch job script (sbatch run.sh)  
+Requirements.txt   # Python dependencies  
+.gitignore  
 ```
 
 ---
 
-## 📊 Dataset
+## ⚙️ Usage  
 
-For the animal sound clips, we use the dataset from:  
-🔗 [Animal Sound Dataset by YashNita](https://github.com/YashNita/Animal-Sound-Dataset/tree/master)
-
----
-
-## 🚀 How to Run
-
-### 1️⃣ Install dependencies
+### 1. Install dependencies
 ```bash
-pip install -r requirements.txt
+pip install -r Requirements.txt
 ```
 
-### 2️⃣ Run with GPU (via SLURM)
+### 2. Run the full pipeline on a cluster
+Submit the SLURM job:
 ```bash
-sbatch load.sh
+sbatch run.sh
 ```
 
-This will:
-1. Preprocess audio clips into MFCC features
-2. Train the model (`mfcc_lstm` or `mfcc_cnn`)
-3. Evaluate on the validation set
-4. Generate reports & plots in `results/`
+This script runs:  
+- Preprocessing (MFCC extraction, plotting)  
+- Model training (`train.py`)  
+- Evaluation (`eval.py`)  
+- OOD detection (`osr_classifier.py`, `osr_uncertainty.py`)  
+- Explainability visualizations (`explainability.py`)  
+- Robustness analysis (`adversarial_sensitivity.py`)  
 
 ---
 
-## 📈 Sample Generated Outputs
+## 📊 Results  
 
-### 🔹 Bird Waveforms
-<img src="results/bird_waveforms_concat_colored.png" alt="Bird Waveforms" width="700">
-
-### 🔹 MFCC Plots for Bird Samples
-<p float="left">
-  <img src="results/mfcc_bird.png" width="350">
-  <img src="results/mfcc_monkey.png" width="350">
-  <img src="results/mfcc_dog.png" width="350">
-  <img src="results/mfcc_cat.png" width="350">
-
-</p>
-
-### 🔹 Combined Sound Plots for Available Species
-<img src="results/combined_animals_waveforms.png" alt="Bird Waveforms" width="700">
-
-
+### 🔹 Training & Validation Accuracy  
+Validation accuracy ~70% with only **5 training samples per class**, improved with **data augmentation** (noise, pitch shift, stretch).  
 
 ---
 
-## 📌 Notes
-- All generated results are stored in `results/` after running `load.sh`.
-- You can switch architectures between `mfcc_lstm` and `mfcc_cnn` in `load.sh`.
-- The pipeline supports ONNX export for deployment.
+### 🔹 Confusion Matrix  
+![Confusion Matrix](results/confusion_matrix.png)  
+Shows per-class misclassifications (e.g., cat vs dog confusion).  
 
 ---
+
+### 🔹 Out-of-Distribution Detection  
+- **Centroid distance method** separates ID vs OOD (frog sounds).  
+- **Uncertainty estimation (entropy)** achieves higher AUC than MC Dropout.  
+
+![Centroid Distances](results/centroid_distances.png)  
+
+---
+
+### 🔹 Attention Visualization  
+The LSTM-Attn model highlights **distinct bursts** (e.g., lion roars, bird chirps) rather than background noise.  
+
+![Explainability](results/explainability/class_samples_lion.png)  
+
+---
+
+### 🔹 Embedding Analysis  
+- t-SNE shows clear class separation.  
+- K-means clustering aligns with labels.  
+- Logistic regression on embeddings improves interpretability.  
+
+![t-SNE](results/embedding_tsne.png)  
+
+---
+
+### 🔹 Adversarial Sensitivity  
+- Model is **robust to Gaussian noise**,  
+- but **fragile to adversarial FGSM perturbations** (sharp drop in accuracy).  
+
+![Adversarial Sensitivity](results/adversarial_sensitivity.png)  
+
+---
+
+## 📌 Key Contributions  
+- End-to-end **audio classification pipeline** with MFCC + LSTM-Attn  
+- **OOD detection** using centroids & uncertainty estimation  
+- **Explainability** via attention overlays on spectrograms  
+- **Robustness analysis** against noise & adversarial attacks  
+- **Statistical validation** (ROC, AUC, embeddings, centroid distributions)  
+
+---
+
+## 🚀 Next Steps  
+- Adversarial training (improve robustness to FGSM/PGD attacks)  
+- Model calibration (ECE, reliability diagrams)  
+- Larger dataset and stronger augmentations  
+- Deployable ONNX model for real-time inference  
