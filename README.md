@@ -125,7 +125,7 @@ The LSTM-Attn model highlights **distinct bursts** (e.g., lion roars, bird chirp
 - K-means clustering aligns with labels.  
 - Logistic regression on embeddings improves interpretability.  
 
-<img src="results/embeddings_tsne.png" alt="t-SNE" width="400"/>
+<img src="results/embeddings_tsne.png" alt="t-SNE" width="600"/>
 
 ---
 
