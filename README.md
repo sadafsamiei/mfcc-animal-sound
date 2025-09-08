@@ -96,7 +96,8 @@ Validation accuracy ~70% with only **5 training samples per class**, improved wi
 ---
 
 ### 🔹 Confusion Matrix  
-![Confusion Matrix](results/confusion_matrix.png)  
+<img src="results/confusion_matrix.png" alt="Confusion Matrix" width="400"/>
+
 Shows per-class misclassifications (e.g., cat vs dog confusion).  
 
 ---
