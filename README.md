@@ -134,10 +134,5 @@ The LSTM-Attn model highlights **distinct bursts** (e.g., lion roars, bird chirp
 - **Robustness analysis** against noise & adversarial attacks  
 - **Statistical validation** (ROC, AUC, embeddings, centroid distributions)  
 
----
 
-## 🚀 Next Steps  
-- Adversarial training (improve robustness to FGSM/PGD attacks)  
-- Model calibration (ECE, reliability diagrams)  
-- Larger dataset and stronger augmentations  
-- Deployable ONNX model for real-time inference  
+
