@@ -85,7 +85,8 @@ This script runs:
 ## 📊 Results  
 
 ### 🔹 Log-Mel Spectogram visualisation for all the samples
-![Log-Mel spectogram for a cat sound](results/cat_train1_features.png)  
+<img src="results/cat_train1_features.png" alt="Log-Mel spectogram for a cat sound" width="400"/>
+
 
 
 ---
@@ -113,8 +114,8 @@ Shows per-class misclassifications (e.g., cat vs dog confusion).
 ### 🔹 Attention Visualization  
 The LSTM-Attn model highlights **distinct bursts** (e.g., lion roars, bird chirps) rather than background noise.  
 
-![Explainability](results/class_samples_cat.png)  
-![Explainability](results/class_samples_monkey.png)  
+<img src="results/class_samples_cat.png" alt="Explainability" width="400"/>
+<img src="results/class_samples_monkey.png" alt="Explainability" width="400"/>
 
 
 ---
