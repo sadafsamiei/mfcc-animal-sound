@@ -1,0 +1,105 @@
+>>> Step 1: Preprocessing audio into MFCC features
+>>> Step 2: Generating MFCC + Log-Mel plots and waveforms
+>>> Step 3: Training model (LSTM with Attention)
+Epoch 1/20 | Train Loss=0.4249 | Val Loss=0.5286 | Val Acc=0.900
+Epoch 2/20 | Train Loss=0.0227 | Val Loss=0.9348 | Val Acc=0.700
+Epoch 3/20 | Train Loss=0.0025 | Val Loss=0.5997 | Val Acc=0.900
+Epoch 4/20 | Train Loss=0.0308 | Val Loss=1.1696 | Val Acc=0.700
+Epoch 5/20 | Train Loss=0.0351 | Val Loss=0.3706 | Val Acc=0.900
+Epoch 6/20 | Train Loss=0.0015 | Val Loss=0.4202 | Val Acc=0.900
+Epoch 7/20 | Train Loss=0.0008 | Val Loss=0.4625 | Val Acc=0.900
+Epoch 8/20 | Train Loss=0.0005 | Val Loss=0.4792 | Val Acc=0.900
+Epoch 9/20 | Train Loss=0.0004 | Val Loss=0.5113 | Val Acc=0.900
+Epoch 10/20 | Train Loss=0.0003 | Val Loss=0.5238 | Val Acc=0.900
+Epoch 11/20 | Train Loss=0.0002 | Val Loss=0.5414 | Val Acc=0.900
+Epoch 12/20 | Train Loss=0.0002 | Val Loss=0.5587 | Val Acc=0.900
+Epoch 13/20 | Train Loss=0.0002 | Val Loss=0.5693 | Val Acc=0.900
+Epoch 14/20 | Train Loss=0.0001 | Val Loss=0.5779 | Val Acc=0.900
+Epoch 15/20 | Train Loss=0.0001 | Val Loss=0.5989 | Val Acc=0.900
+Epoch 16/20 | Train Loss=0.0001 | Val Loss=0.6102 | Val Acc=0.900
+Epoch 17/20 | Train Loss=0.0001 | Val Loss=0.6163 | Val Acc=0.900
+Epoch 18/20 | Train Loss=0.0001 | Val Loss=0.6282 | Val Acc=0.900
+Epoch 19/20 | Train Loss=0.0001 | Val Loss=0.6448 | Val Acc=0.900
+Epoch 20/20 | Train Loss=0.0001 | Val Loss=0.6601 | Val Acc=0.900
+>>> Step 4: Evaluating model on validation set
+Validation Accuracy: 0.90
+>>> Step 5: Exporting model to ONNX format
+ONNX model saved to /scratch/ssamie/MFCC-animal-sound/results/models/lstm_attn.onnx
+>>> Step 6: Running OOSR classifier
+
+Validation Results with OOSR Detection
+================================================================================
+File                True        Predicted      Correct
+--------------------------------------------------------------------------------
+val1.npy            bird        bird           ✔
+val2.npy            bird        bird           ✔
+val1.npy            cat         dog            ✘
+val2.npy            cat         cat            ✔
+val1.npy            dog         dog            ✔
+val2.npy            dog         dog            ✔
+val1.npy            frog(OOSR)  dog            ✘
+val2.npy            frog(OOSR)  dog            ✘
+val1.npy            lion        lion           ✔
+val2.npy            lion        lion           ✔
+val1.npy            monkey      monkey         ✔
+val2.npy            monkey      monkey         ✔
+================================================================================
+In-distribution Accuracy: 0.90 (9/10)
+OOSR Detection Accuracy: 0.00 (0/2)
+>>> Step 7: Plotting distance-to-centroid histograms
+
+Centroid Distance Summary
+========================================
+In-Distribution samples : 10
+Near-OOD samples        : 0
+Far-OOD samples         : 2
+Threshold set at        : 100.0
+Plot saved to: /scratch/ssamie/MFCC-animal-sound/results/centroid_distance.png
+>>> Step 8: Running Uncertainty Estimation (Softmax Entropy + MC Dropout + ROC)
+
+Uncertainty Estimation Results
+==========================================================================================
+Index True        Pred        Entropy     MC Var      
+------------------------------------------------------------------------------------------
+0     bird        bird        0.0004      0.0000      
+1     bird        bird        0.4006      0.0021      
+2     cat         dog         0.0208      0.0000      
+3     cat         cat         0.1581      0.0000      
+4     dog         dog         0.0011      0.0000      
+5     dog         dog         0.0001      0.0000      
+6     OOSR        dog         0.0105      0.0000      
+7     OOSR        dog         0.0007      0.0000      
+8     lion        lion        0.0001      0.0000      
+9     lion        lion        0.0001      0.0000      
+10    monkey      monkey      0.0910      0.0000      
+11    monkey      monkey      0.0000      0.0000      
+==========================================================================================
+Avg Entropy: 0.0570
+Avg MC Var : 0.0002
+ROC curves saved to /scratch/ssamie/MFCC-animal-sound/results/roc_uncertainty.png
+>>> Step 9: Plotting Confusion Matrix
+Confusion matrix saved to /scratch/ssamie/MFCC-animal-sound/results/confusion_matrix.png
+>>> Step 10: Embedding Space Analysis (t-SNE + KMeans + Logistic Regression)
+KMeans clustering accuracy (unsupervised vs true labels): 0.00
+Logistic Regression accuracy on embeddings: 1.00
+t-SNE embedding plot saved to /scratch/ssamie/MFCC-animal-sound/results/embeddings_tsne.png
+>>> Step 11: Explainability (Attention Visualizations)
+Saved combined sample-level attention plots for bird → /scratch/ssamie/MFCC-animal-sound/results/explainability/class_samples_bird.png
+Saved combined sample-level attention plots for cat → /scratch/ssamie/MFCC-animal-sound/results/explainability/class_samples_cat.png
+Saved combined sample-level attention plots for dog → /scratch/ssamie/MFCC-animal-sound/results/explainability/class_samples_dog.png
+Saved combined sample-level attention plots for OOSR → /scratch/ssamie/MFCC-animal-sound/results/explainability/class_samples_OOSR.png
+Saved combined sample-level attention plots for lion → /scratch/ssamie/MFCC-animal-sound/results/explainability/class_samples_lion.png
+Saved combined sample-level attention plots for monkey → /scratch/ssamie/MFCC-animal-sound/results/explainability/class_samples_monkey.png
+>>> Step 12: Adversarial Sensitivity Analysis (Gaussian + FGSM)
+[Gaussian] eps=0.000 → acc=0.900
+[Gaussian] eps=0.010 → acc=0.900
+[Gaussian] eps=0.050 → acc=0.900
+[Gaussian] eps=0.100 → acc=0.800
+[Gaussian] eps=0.200 → acc=0.800
+[FGSM] eps=0.000 → acc=0.900
+[FGSM] eps=0.010 → acc=0.800
+[FGSM] eps=0.050 → acc=0.700
+[FGSM] eps=0.100 → acc=0.700
+[FGSM] eps=0.200 → acc=0.400
+Saved adversarial sensitivity plot to /scratch/ssamie/MFCC-animal-sound/results/adversarial_sensitivity.png
+>>> All steps completed successfully. Results are in /scratch/ssamie/MFCC-animal-sound/results
