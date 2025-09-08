@@ -19,7 +19,7 @@ def compute_class_centroids(train_set):
         centroids[k] = np.mean(np.stack(centroids[k], axis=0), axis=0)
     return centroids
 
-def plot_distance_hist(threshold=100.0, batch_size=1):
+def plot_distance_hist(threshold=175.0, batch_size=1):
     train_loader, _, label2idx, idx2label = get_dataloaders(batch_size=batch_size)
     train_set = train_loader.dataset
     val_set = MFCCDataset("val", label2idx=label2idx) 
@@ -30,7 +30,7 @@ def plot_distance_hist(threshold=100.0, batch_size=1):
     dists_id, dists_near, dists_far = [], [], []
 
     for x, y in val_loader:
-        x = x[0]  # (seq_len, features)
+        x = x[0]  
         vec = x.mean(dim=0).numpy()
 
         if y.item() == -1:  
@@ -39,7 +39,7 @@ def plot_distance_hist(threshold=100.0, batch_size=1):
                 dists_near.append(min_dist) 
             else:
                 dists_far.append(min_dist)   
-        else:  # In-distribution
+        else:  
             centroid = centroids[y.item()]
             dist = np.linalg.norm(vec - centroid)
             dists_id.append(dist)
