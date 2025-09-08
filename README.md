@@ -108,7 +108,8 @@ Shows per-class misclassifications (e.g., cat vs dog confusion).
 - **Centroid distance method** separates ID vs OOD (frog sounds).  
 - **Uncertainty estimation (entropy)** achieves higher AUC than MC Dropout.  
 
-![Centroid Distances](results/centroid_distances.png)  
+<img src="results/centroid_distance.png" alt="Centroid Distances" width="400"/>
+
 
 ---
 
