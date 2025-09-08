@@ -1,26 +1,26 @@
 >>> Step 1: Preprocessing audio into MFCC features
 >>> Step 2: Generating MFCC + Log-Mel plots and waveforms
 >>> Step 3: Training model (LSTM with Attention)
-Epoch 1/20 | Train Loss=0.4151 | Val Loss=0.6688 | Val Acc=0.800
-Epoch 2/20 | Train Loss=0.0114 | Val Loss=0.6644 | Val Acc=0.800
-Epoch 3/20 | Train Loss=0.0538 | Val Loss=1.2980 | Val Acc=0.700
-Epoch 4/20 | Train Loss=0.0024 | Val Loss=1.5445 | Val Acc=0.700
-Epoch 5/20 | Train Loss=0.0010 | Val Loss=1.7115 | Val Acc=0.600
-Epoch 6/20 | Train Loss=0.0007 | Val Loss=1.8047 | Val Acc=0.600
-Epoch 7/20 | Train Loss=0.0006 | Val Loss=1.6906 | Val Acc=0.700
-Epoch 8/20 | Train Loss=0.0004 | Val Loss=1.7424 | Val Acc=0.700
-Epoch 9/20 | Train Loss=0.0003 | Val Loss=1.7316 | Val Acc=0.700
-Epoch 10/20 | Train Loss=0.0002 | Val Loss=1.8427 | Val Acc=0.700
-Epoch 11/20 | Train Loss=0.0002 | Val Loss=1.8819 | Val Acc=0.700
-Epoch 12/20 | Train Loss=0.0002 | Val Loss=1.8727 | Val Acc=0.700
-Epoch 13/20 | Train Loss=0.0001 | Val Loss=1.9001 | Val Acc=0.700
-Epoch 14/20 | Train Loss=0.0001 | Val Loss=1.7446 | Val Acc=0.700
-Epoch 15/20 | Train Loss=0.0001 | Val Loss=1.9800 | Val Acc=0.700
-Epoch 16/20 | Train Loss=0.0001 | Val Loss=1.9964 | Val Acc=0.700
-Epoch 17/20 | Train Loss=0.0001 | Val Loss=2.0178 | Val Acc=0.700
-Epoch 18/20 | Train Loss=0.0001 | Val Loss=2.0235 | Val Acc=0.700
-Epoch 19/20 | Train Loss=0.0000 | Val Loss=2.0365 | Val Acc=0.700
-Epoch 20/20 | Train Loss=0.0000 | Val Loss=2.0499 | Val Acc=0.700
+Epoch 1/20 | Train Loss=0.4101 | Val Loss=1.6600 | Val Acc=0.600
+Epoch 2/20 | Train Loss=0.0146 | Val Loss=1.0534 | Val Acc=0.800
+Epoch 3/20 | Train Loss=0.0073 | Val Loss=1.0027 | Val Acc=0.800
+Epoch 4/20 | Train Loss=0.0186 | Val Loss=0.9778 | Val Acc=0.700
+Epoch 5/20 | Train Loss=0.0095 | Val Loss=0.8452 | Val Acc=0.800
+Epoch 6/20 | Train Loss=0.0010 | Val Loss=0.9885 | Val Acc=0.800
+Epoch 7/20 | Train Loss=0.0006 | Val Loss=0.9777 | Val Acc=0.800
+Epoch 8/20 | Train Loss=0.0004 | Val Loss=0.9914 | Val Acc=0.800
+Epoch 9/20 | Train Loss=0.0003 | Val Loss=1.0129 | Val Acc=0.800
+Epoch 10/20 | Train Loss=0.0002 | Val Loss=1.0241 | Val Acc=0.800
+Epoch 11/20 | Train Loss=0.0002 | Val Loss=1.0501 | Val Acc=0.800
+Epoch 12/20 | Train Loss=0.0001 | Val Loss=1.0651 | Val Acc=0.800
+Epoch 13/20 | Train Loss=0.0001 | Val Loss=1.0794 | Val Acc=0.800
+Epoch 14/20 | Train Loss=0.0001 | Val Loss=1.0902 | Val Acc=0.800
+Epoch 15/20 | Train Loss=0.0001 | Val Loss=1.1133 | Val Acc=0.800
+Epoch 16/20 | Train Loss=0.0001 | Val Loss=1.1301 | Val Acc=0.800
+Epoch 17/20 | Train Loss=0.0001 | Val Loss=1.1573 | Val Acc=0.800
+Epoch 18/20 | Train Loss=0.0001 | Val Loss=1.1734 | Val Acc=0.800
+Epoch 19/20 | Train Loss=0.0001 | Val Loss=2.2512 | Val Acc=0.700
+Epoch 20/20 | Train Loss=0.0000 | Val Loss=2.2514 | Val Acc=0.700
 >>> Step 4: Evaluating model on validation set
 Validation Accuracy: 0.70
 >>> Step 5: Exporting model to ONNX format
@@ -34,17 +34,17 @@ File                True        Predicted      Correct
 val1.npy            bird        bird           ✔
 val2.npy            bird        cat            ✘
 val1.npy            cat         lion           ✘
-val2.npy            cat         lion           ✘
+val2.npy            cat         cat            ✔
 val1.npy            dog         dog            ✔
 val2.npy            dog         dog            ✔
-val1.npy            frog(OOSR)  monkey         ✘
+val1.npy            frog(OOSR)  lion           ✘
 val2.npy            frog(OOSR)  dog            ✘
 val1.npy            lion        lion           ✔
 val2.npy            lion        lion           ✔
 val1.npy            monkey      lion           ✘
 val2.npy            monkey      monkey         ✔
 ================================================================================
-In-distribution Accuracy: 0.60 (6/10)
+In-distribution Accuracy: 0.70 (7/10)
 OOSR Detection Accuracy: 0.00 (0/2)
 >>> Step 7: Plotting distance-to-centroid histograms
 
@@ -53,7 +53,7 @@ Centroid Distance Summary
 In-Distribution samples : 10
 Near-OOD samples        : 0
 Far-OOD samples         : 2
-Threshold set at        : 175.0
+Threshold set at        : 100.0
 Plot saved to: /scratch/ssamie/MFCC-animal-sound/results/centroid_distance.png
 >>> Step 8: Running Uncertainty Estimation (Softmax Entropy + MC Dropout + ROC)
 
@@ -61,26 +61,26 @@ Uncertainty Estimation Results
 ==========================================================================================
 Index True        Pred        Entropy     MC Var      
 ------------------------------------------------------------------------------------------
-0     bird        bird        0.0003      0.0000      
-1     bird        cat         0.0009      0.0000      
-2     cat         lion        0.0001      0.0000      
-3     cat         lion        0.0085      0.0000      
-4     dog         dog         0.0004      0.0000      
-5     dog         dog         0.0010      0.0000      
-6     OOSR        monkey      0.2499      0.0014      
-7     OOSR        dog         0.0007      0.0000      
-8     lion        lion        0.0008      0.0000      
-9     lion        lion        0.0003      0.0000      
-10    monkey      lion        0.0360      0.0001      
-11    monkey      monkey      0.0002      0.0000      
+0     bird        bird        0.0006      0.0000      
+1     bird        cat         0.0541      0.0000      
+2     cat         lion        0.0025      0.0000      
+3     cat         cat         0.1247      0.0033      
+4     dog         dog         0.0006      0.0000      
+5     dog         dog         0.0003      0.0000      
+6     OOSR        lion        0.3758      0.0032      
+7     OOSR        dog         0.3732      0.0001      
+8     lion        lion        0.0002      0.0000      
+9     lion        lion        0.0020      0.0000      
+10    monkey      lion        0.0320      0.0000      
+11    monkey      monkey      0.0005      0.0000      
 ==========================================================================================
-Avg Entropy: 0.0249
-Avg MC Var : 0.0001
+Avg Entropy: 0.0805
+Avg MC Var : 0.0005
 ROC curves saved to /scratch/ssamie/MFCC-animal-sound/results/roc_uncertainty.png
 >>> Step 9: Plotting Confusion Matrix
 Confusion matrix saved to /scratch/ssamie/MFCC-animal-sound/results/confusion_matrix.png
 >>> Step 10: Embedding Space Analysis (t-SNE + KMeans + Logistic Regression)
-KMeans clustering accuracy (unsupervised vs true labels): 0.00
+KMeans clustering accuracy (unsupervised vs true labels): 0.30
 Logistic Regression accuracy on embeddings: 1.00
 t-SNE embedding plot saved to /scratch/ssamie/MFCC-animal-sound/results/embeddings_tsne.png
 >>> Step 11: Explainability (Attention Visualizations)
@@ -91,15 +91,15 @@ Saved combined sample-level attention plots for OOSR → /scratch/ssamie/MFCC-an
 Saved combined sample-level attention plots for lion → /scratch/ssamie/MFCC-animal-sound/results/explainability/class_samples_lion.png
 Saved combined sample-level attention plots for monkey → /scratch/ssamie/MFCC-animal-sound/results/explainability/class_samples_monkey.png
 >>> Step 12: Adversarial Sensitivity Analysis (Gaussian + FGSM)
-[Gaussian] eps=0.000 → acc=0.600
-[Gaussian] eps=0.010 → acc=0.600
-[Gaussian] eps=0.050 → acc=0.600
-[Gaussian] eps=0.100 → acc=0.600
-[Gaussian] eps=0.200 → acc=0.600
-[FGSM] eps=0.000 → acc=0.600
-[FGSM] eps=0.010 → acc=0.600
+[Gaussian] eps=0.000 → acc=0.700
+[Gaussian] eps=0.010 → acc=0.700
+[Gaussian] eps=0.050 → acc=0.700
+[Gaussian] eps=0.100 → acc=0.700
+[Gaussian] eps=0.200 → acc=0.700
+[FGSM] eps=0.000 → acc=0.700
+[FGSM] eps=0.010 → acc=0.700
 [FGSM] eps=0.050 → acc=0.600
-[FGSM] eps=0.100 → acc=0.600
-[FGSM] eps=0.200 → acc=0.500
+[FGSM] eps=0.100 → acc=0.500
+[FGSM] eps=0.200 → acc=0.200
 Saved adversarial sensitivity plot to /scratch/ssamie/MFCC-animal-sound/results/adversarial_sensitivity.png
 >>> All steps completed successfully. Results are in /scratch/ssamie/MFCC-animal-sound/results
