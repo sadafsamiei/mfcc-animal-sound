@@ -84,6 +84,12 @@ This script runs:
 
 ## 📊 Results  
 
+### 🔹 Log-Mel Spectogram visualisation for all the samples
+![Log-Mel spectogram for a cat sound](results/cat_train1_features.png)  
+
+
+---
+
 ### 🔹 Training & Validation Accuracy  
 Validation accuracy ~70% with only **5 training samples per class**, improved with **data augmentation** (noise, pitch shift, stretch).  
 
