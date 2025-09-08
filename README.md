@@ -85,7 +85,8 @@ This script runs:
 ## 📊 Results  
 
 ### 🔹 Log-Mel Spectogram visualisation for all the samples
-<img src="results/cat_train1_features.png" alt="Log-Mel spectogram for a cat sound" width="400"/>
+![Log-Mel spectogram for a cat sound](results/cat_train1_features.png)  
+
 
 
 
