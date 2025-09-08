@@ -16,7 +16,7 @@ def fgsm_attack(model, x, y, eps):
     loss.backward()
     grad_sign = x.grad.sign()
     x_adv = x + eps * torch.std(x) * grad_sign
-    model.eval()  # back to eval mode
+    model.eval()  
     return x_adv.detach()
 
 
