@@ -112,7 +112,9 @@ Shows per-class misclassifications (e.g., cat vs dog confusion).
 ### 🔹 Attention Visualization  
 The LSTM-Attn model highlights **distinct bursts** (e.g., lion roars, bird chirps) rather than background noise.  
 
-![Explainability](results/explainability/class_samples_lion.png)  
+![Explainability](results/explainability/class_samples_cat.png)  
+![Explainability](results/explainability/class_samples_monkey.png)  
+
 
 ---
 
